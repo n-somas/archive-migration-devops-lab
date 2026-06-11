@@ -1,0 +1,8 @@
+services:
+  web:
+    build: .
+    container_name: archive_migration_web
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
