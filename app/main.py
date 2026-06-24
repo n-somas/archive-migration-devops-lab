@@ -1,16 +1,26 @@
-from fastapi import FastAPI
+﻿from contextlib import asynccontextmanager
 
-# Erstellt die FastAPI-Anwendung.
-# Diese App simuliert später eine kleine Dokument-Migrationsplattform.
+from fastapi import Depends, FastAPI
+from sqlalchemy.orm import Session
+
+from app import crud, models, schemas
+from app.database import Base, engine, get_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 app = FastAPI(
     title="Archive Migration DevOps Lab",
-    description="Small DevOps lab for document migration, Docker, database and CI/CD basics.",
-    version="0.1.0"
+    description="Small DevOps lab for archive migration, Docker and database basics.",
+    version="0.2.0",
+    lifespan=lifespan
 )
 
 
-# Startseite der API.
-# Damit prüfen wir schnell, ob die Anwendung grundsätzlich erreichbar ist.
 @app.get("/")
 def read_root():
     return {
@@ -18,8 +28,6 @@ def read_root():
     }
 
 
-# Healthcheck-Endpunkt.
-# Solche Endpunkte werden im Betrieb genutzt, um zu prüfen, ob ein Dienst lebt.
 @app.get("/health")
 def health_check():
     return {
@@ -27,23 +35,14 @@ def health_check():
     }
 
 
-# Einfacher Beispiel-Endpunkt.
-# Später ersetzen wir diese statischen Daten durch Daten aus PostgreSQL.
-@app.get("/documents")
-def get_documents():
-    return [
-        {
-            "document_id": "DOC-1001",
-            "source_system": "old_archive",
-            "target_system": "new_archive",
-            "file_name": "invoice_2024_001.pdf",
-            "status": "pending"
-        },
-        {
-            "document_id": "DOC-1002",
-            "source_system": "old_archive",
-            "target_system": "new_archive",
-            "file_name": "contract_2024_002.pdf",
-            "status": "success"
-        }
-    ]
+@app.get("/documents", response_model=list[schemas.DocumentResponse])
+def get_documents(db: Session = Depends(get_db)):
+    return crud.get_documents(db)
+
+
+@app.post("/documents", response_model=schemas.DocumentResponse)
+def create_document(
+    document: schemas.DocumentCreate,
+    db: Session = Depends(get_db)
+):
+    return crud.create_document(db, document)
